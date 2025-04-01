@@ -1,0 +1,21 @@
+resilience4j:
+  retry:
+    instances:
+      myRetry1:
+        maxAttempts: 3
+        waitDuration: 2
+        retryEnable: true
+        retryExceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+          - org.springframework.web.reactive.function.client.WebClientRequestException
+        ignoreExceptions:
+          - org.springframework.web.reactive.function.client.WebClientResponseException$BadRequest
+
+      myRetry2:
+        maxAttempts: 5
+        waitDuration: 1
+        retryEnable: false
+        retryExceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
