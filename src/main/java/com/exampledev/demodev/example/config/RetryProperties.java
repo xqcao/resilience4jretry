@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.List;
 import java.util.Map;
 
 @Configuration
@@ -30,5 +31,6 @@ public class RetryProperties {
         private int maxAttempts;
         private int waitDuration;
         private boolean retryEnable;
+        private List<String> retryExceptions;
     }
 }

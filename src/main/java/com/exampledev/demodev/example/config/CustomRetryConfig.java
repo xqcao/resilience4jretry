@@ -20,18 +20,31 @@ public class CustomRetryConfig {
 
     @Bean
     public RetryRegistry retryRegistry() {
-        RetryConfig myRetry1Config = RetryConfig.custom()
-                .maxAttempts(retryProperties.getInstances().get(MY_RETRY_1).getMaxAttempts())
-                .waitDuration(Duration.ofSeconds(retryProperties.getInstances().get(MY_RETRY_1).getWaitDuration()))
-                .build();
-
-        RetryConfig myRetry2Config = RetryConfig.custom()
-                .maxAttempts(retryProperties.getInstances().get(MY_RETRY_2).getMaxAttempts())
-                .waitDuration(Duration.ofSeconds(retryProperties.getInstances().get(MY_RETRY_2).getWaitDuration()))
-                .build();
+        RetryConfig myRetry1Config = createRetryConfig(MY_RETRY_1);
+        RetryConfig myRetry2Config = createRetryConfig(MY_RETRY_2);
 
         RetryRegistry registry = RetryRegistry.of(myRetry1Config);
         registry.addConfiguration(MY_RETRY_2, myRetry2Config);
         return registry;
+    }
+
+    private RetryConfig createRetryConfig(String retryName) {
+        int maxAttempts = retryProperties.getInstances().get(retryName).getMaxAttempts();
+        return RetryConfig.custom()
+                .maxAttempts(maxAttempts)
+                .waitDuration(Duration.ofMillis(500)) // Base wait duration
+                .retryExceptions(retryProperties.getInstances().get(retryName).getRetryExceptions()
+                        .stream()
+                        .map(this::getClassForName) // Convert string names to Class objects
+                        .toArray(Class[]::new)) // Use Class[] to avoid type mismatch
+                .build();
+    }
+
+    private Class<? extends Throwable> getClassForName(String className) {
+        try {
+            return (Class<? extends Throwable>) Class.forName(className);
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException("Class not found: " + className, e);
+        }
     }
 }

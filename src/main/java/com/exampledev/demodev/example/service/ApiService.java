@@ -1,17 +1,22 @@
 package com.exampledev.demodev.example.service;
 
 import com.exampledev.demodev.example.config.RetryProperties;
+import com.exampledev.demodev.example.exceptions.EmptyResponseException;
+
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryRegistry;
+import lombok.extern.slf4j.Slf4j;
 import io.github.resilience4j.reactor.retry.RetryOperator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 import java.util.function.Supplier;
 
+@Slf4j
 @Service
 public class ApiService {
 
@@ -27,34 +32,53 @@ public class ApiService {
         this.myRetry1 = retryRegistry.retry("myRetry1");
         this.myRetry2 = retryRegistry.retry("myRetry2");
         this.retryProperties = retryProperties;
+        myRetry1.getEventPublisher()
+                .onRetry(event -> System.out.println("Retrying: " + event));
+        myRetry1.getEventPublisher()
+                .onRetry(event -> log.warn("Retrying [{}]: attempt #{}", event.getName(),
+                        event.getNumberOfRetryAttempts()));
     }
 
     public Mono<String> getDataWithRetry1() {
-        Supplier<Mono<String>> supplier = () -> {
-            logProperties("myRetry1");
-            return webClient.get()
-                    .uri("/")
-                    .retrieve()
-                    .bodyToMono(String.class);
-        };
+        final int[] count = new int[] { 0 };
+        logProperties("myRetry1");
+        logger.info("csu before retry");
 
-        return retryProperties.getInstances().get("myRetry1").isRetryEnable()
-                ? Mono.defer(supplier).transformDeferred(RetryOperator.of(myRetry1))
-                : Mono.defer(supplier);
+        Supplier<Mono<String>> supplier = () -> {
+            log.info("csu before retry count: {}", count[0]++);
+            return webClient.get()
+                    .uri("http://localhost:5000/csuempty")
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .flatMap(response -> {
+                        if (response == null || response.isBlank()) {
+                            return Mono.error(new EmptyResponseException("Empty response"));
+                        }
+                        return Mono.just(response);
+                    });
+        }; // Close the supplier block here
+
+        return Retry.decorateSupplier(myRetry1, supplier).get();
     }
 
     public Mono<String> getDataWithRetry2() {
+        final int[] count = new int[] { 0 };
         Supplier<Mono<String>> supplier = () -> {
             logProperties("myRetry2");
+            log.info("myRetry2 retry count: {}", count[0]++);
             return webClient.get()
                     .uri("/")
                     .retrieve()
                     .bodyToMono(String.class);
         };
 
-        return retryProperties.getInstances().get("myRetry2").isRetryEnable()
-                ? Mono.defer(supplier).transformDeferred(RetryOperator.of(myRetry2))
-                : Mono.defer(supplier);
+        return Retry.decorateSupplier(myRetry2, supplier).get();
+    }
+
+    @Bean(name = "testData")
+    public void getTestDataDetails() {
+        logProperties("myRetry1");
+        logProperties("myRetry2");
     }
 
     private void logProperties(String retryName) {

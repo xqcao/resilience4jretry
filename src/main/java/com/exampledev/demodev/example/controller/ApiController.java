@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.exampledev.demodev.example.service.ApiService;
 
 import reactor.core.publisher.Mono;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @RestController
 public class ApiController {
@@ -25,4 +26,10 @@ public class ApiController {
     public Mono<String> fetchDataWithRetry2() {
         return apiService.getDataWithRetry2();
     }
-} 
+
+    @GetMapping("/hi")
+    public String sayHi() {
+        return "hi, nice to see you";
+    }
+
+}
